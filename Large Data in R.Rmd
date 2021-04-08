@@ -1,0 +1,195 @@
+---
+title: "Large Data in R: Or How I Learned to Stop Worrying and Allocate That Vector"
+author: "Ben Sabath\n"
+output: github_document
+date: "Updated `r format(Sys.Date(), '%B %d, %Y')`"
+---
+
+-------
+
+## Table of Contents
+
+ - [Part 0: Environment Set Up](#part-0-environment-set-up)
+ - [Part 1: What is Large Data?](#part-1-what-is-large-data)
+ - [Part 2: How Does R Work With Memory?](#part-2-how-does-r-work-with-memory)
+ - [Part 3: Thinking about Memory Challenges in R](#part-3-thinking-about-memory-challenges-in-r)
+ - [Part 4: Working With Data that "Mostly Fits"](#part-4-working-with-data-that-mostly-fits)
+ - [Part 5: Working With Data That "Doesn't Fit"](#part-5-working-with-data-that-doesnt-fit)
+ - [Additional Resources](#additional-resources)
+
+--------
+
+## Part 0: Environment Set Up
+
+**PLEASE DO THIS BEFORE THE WORKSHOP**
+
+There are multiple ways to set up your environment for this course. Our focus will be more on the 
+concepts underlying Large Data in R and how to work through problems, rather then executing specific
+blocks of code. However if you'd like to follow along and ensure that you have all packages you need
+installed, I've provided a `conda` environment in this repo for your use.
+
+Note: This course assumes that you are comfortable using the command line and are working on a unix based system (MacOS or Linux). The assistance I'll be able to provide for attendees with windows computers will be limited.
+
+#### STEP 0 - Clone This Repo
+If you're reading this, you've found the git repository with materials for this course. The easiest way to download all of the materials and have them properly arranged is to clone this repo. To do this run the following command
+
+```
+git clone git@github.com:FASRC/blah blah blah
+```
+
+This will create a local copy of this repo on your computer. `cd` to that directory for the rest of this setup.
+
+#### STEP 1 - Install Conda
+
+If you're working on a computer that doesn't currently have conda installed, you can install miniconda [using this link](https://docs.conda.io/en/latest/miniconda.html). I recommend the Python 3.9 version.
+ 
+#### STEP 2 - Create The Environment
+
+Included in the repo is the file `large_data_env.yml`. This file lists the packages needed for this course. Conda is great for environment management and environment sharing since it handles installing all of the dependencies needed, and can support set up on multiple operating systems. Creating conda environments for your projects is a separate subject, but is a great way to make your research projects easy for others to use and to support reproducibility. To install this environment run:
+```
+conda env create -f large_data_env.yml
+```
+You will be prompted to download and install a number of packages, please install things as prompted.
+
+If everything worked, you should see an environment named `large_data_in_R` listed when you run
+```
+conda env list
+```
+#### STEP 3 - Run R and Install One Additional Package
+
+To activate the environment, run the following command:
+```
+source activate large_data_in_R
+```
+
+If this is successful, your terminal prompt will change to look something like this:
+```
+(large_data_in_R) <username> large_data_in_R %
+```
+
+To run Rstudio using the environment, it's important to run it from the terminal. To start Rstudio from the terminal, enter 
+```
+rstudio
+```
+from the terminal where you've activated the envionment. The rstudio window that opens will have all required pacakges already installed, with the exception of the `chunked` package, which is not available through conda. To install that package, please run:
+```{R, eval = F}
+install.packages("chunked")
+```
+Once `chunked` is installed, your environment is good to go!
+
+## Part 1: What Is Large Data?
+
+### 1.1: Defining Big Data
+
+There is often discussion oin data science circles about "what counts" as big data. For some, it's data that can't fit in memory, for others it's data so big, it can't fit on a single hard drive. It might be one single large file, or TBs upon TBs of small files. It might just be an excel file large enough that Excel complains when you use it.
+
+![Qui Gon Jinn](images/Qui-Gon-Jinn_d89416e8.jpeg)
+*There's always bigger data - Qui Gon Jinn*
+
+For me, I find the most useful definition to be "Data that is big enough that you cannot use standard workflows". Any time data is big enough that you need to adjust your processes to account for that, you're entering the world of "Big Data".
+
+That said, for R users, and generally most academic users, the main big data issue is data that is too big to be easily worked with in memory. That is the problem this workshop will seek to address.
+
+### 1.2 What is Data?
+
+#### 1.2.1 Data on Disk
+
+When thinking about and working with data, it's important to understand the layers of abstraction present and how they interact with each other. Think of an html file. On disk, the file is just a structured section of bits. However, depdning on how its encoded (either ASCII or UTF-8), we have instructuions for how to interpret those bits as a text file. An html file in text format is more readable than the raw bits and can be edited by a knowledgeable web developer; however, it is not until the final layer of abstraction, when the information contained in the page is rendered by your browser that the information in the file can be easily interpreted.
+
+![Data Abstraction Layers](images/data_abstraction.png)
+*Examples of layers of abstraction in data*
+
+The same process occurs with any data we want to analyze. Whatever its ultimate structure or purpose is, all data is blocks of bits, with abstraction layers that define how those bits should be interpreted.
+
+CSVs, TSVs, and Fixed width files are all text based formats that are typically used to define data frame like data. They are useful as they are both human and machine readable, but text is a realtively inefficient way to store data.
+
+There are also a number of binary formats (which often also have some compression applied on disk), such as `.fst` files, `hdf5` files, or R specific `.RDS` files. These have the advantage of being more space efficient on disk and faster to read, but this comes at the cost of human readability.
+
+#### 1.2.2 Data in Memory
+*Note: this section is an over simplification*
+
+This will be discussed more in oart 2, but when working with large data it's important to have a sense of what computer memory is. We can think of computer memory as a long tape. When data is loaded in to memory and assigned to a variable, such as when you run a line like
+```{r, eval = F}
+x <- 1:100
+```
+the operating system finds a section of memory large enough to contain that object (in this case 100 integers), reserves it, and then connects its locatoin in memory to the variable. Some objects need to all be on a contiguous section of the tape, some objects can be spread across multiple parts of it. Regardless, the program needs to know interpret the bits stored in memory as a given object. How much space objects take up depends on the system, but the classic base objects in C are as follows:
+
+- integer: 32 or 64 bits
+- double: floating point, typically 64 bits
+- char: typically 8 bits
+- boolean: 1 bit
+
+One common type not seen here is the string. strings are arrays of characters stored in memory. The characters need to be in a contiguous section of memoery, otherwise the system will not be able to interept them as a single string.
+
+### 1.3 Flow of Data in a Program
+
+![Flow of Data in A Program](images/Computer Data Flow.png)
+ In a typical program, we start with data on disk, in some format. We read it in to memory, do some stuff to it on the CPU, store the results of that stuff back in memory, then write those results back to disk so they can be available for the future.
+ 
+ There are limits on this. A single CPU can only do one calculation at a time, so if we have a lot of calculations to do, things may take a while. Similarly, memory can only hold so much data, and if we go over that limit, we either get an error, or have to find some work around. Understanding this flow is key to analyizing how to find those workarounds, and what the limits on our workarounds are.
+
+## Part 2: How Does R Work With Memory?
+
+Basically everything in this section is pulled from Chapters 2 and 3 of [Hadley Wickham's Advanced R](https://adv-r.hadley.nz/names-values.html). I can't recommend that enough as a resource to really understand what's going on in R under the covers.
+
+### 2.1 R as a Language
+
+Why do people use R? There are a number of other statistical programming languages out there. 
+
+### 2.2 Variable Assignment and Copy behavior
+
+### 2.3 Data types and variable size
+
+### 2.4 
+
+## Part 3: Thinking about Memory Challenges in R
+
+### 3.1 Trade Offs When Working With Big Data
+
+If you're working with data large enough to hit the dreaded `cannot allocate vector` error when running your code, you've got a problem. When using your naive workflow, you're trying to fit too large an object through the limit of your system's memory.
+
+![The Evergiven (please put her back)](images/big boat.jpg)
+*An example of a large object causing a bottleneck*
+
+When you hit a  memory bottleneck (assuming it's not caused by a simple to fix bug in your code), there is no magic quick solution to getting around the issue. There's a number of resources that need to be considered when developing any solution:
+
+- Development Time
+- Program Run Time
+- Computational Resources
+    - Number of Nodes
+    - Size of Nodes
+    
+A simple solution to a large data problem is just to throw more memory at it. Depending on the problem, how often something needs to be run, how long it's expected to take, etc, that's often a decent solution, and minimizes the development time needed. However, compute time could still be extended, and the resources required to run the program are quite expensive. For reference, a single node with 8 cores and 100GB of memory costs 300$/month on Amazon. If you need 400GB of memory (which some naive approaches using the CMS data I'm familiar with do), the cost for a single node goes up to 1200 per month. 
+
+Conversely, since all computing processes can be theoretically parallelized (although just because something is parallelized, it doesn't mean it will perform better), with enough development time, any algorithm could be made to run in a standard personal computer's memory. 
+
+The appropriate solution depends on the needs and constraints of the specific project. 
+
+### 3.2 Types of Memory Challenges
+
+For the remainder of this workshop, we're going to cover two types of memory problems. The separation between these is fairly arbitrary, and in most cases you'll want to use techniques from both sets of approaches to resolve your big data problems. 
+
+The two types are as follows:
+- Data that "mostly fits" in memory. This is data where you can read the entire object in to memory, and even run some basic calculations on the set. However complicated calculations or data cleaning operations lead to you running out of memory.
+- Data that doesn't fit in memory. This is data where you can't even load what you need in to memory
+
+## Part 4: Working With Data that "Mostly Fits"
+
+### 4.1 General Strategies
+
+### 4.2 Inplace Data Frame Manipulation with `data.table`
+
+One of the best tools out there for working with large data frames in R is the `data.table` package. It implements the `data.table` object, with many routines written and compiled in C++ and designed for parallel processing. It also supports in place mutation operations on data.frames, as well as having a nice syntax for data aggregation and data joining.
+
+```{R, message = F}
+library(data.table)
+
+```
+
+## Part 5: Working With Data That "Doesn't Fit"
+
+## Additional Resources
+
+- [Hadley Wickham's Advanced R](https://adv-r.hadley.nz/index.html)
+- [Data.Table Syntax Cheat Sheet]
+

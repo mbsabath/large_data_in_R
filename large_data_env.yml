@@ -1,0 +1,11 @@
+name: large_data_in_R
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-lobstr
+  - r-data.table
+  - r-fst
+  - bioconductor-rhdf5
+  - rstudio
+prefix: /opt/anaconda3/envs/large_data_in_R
