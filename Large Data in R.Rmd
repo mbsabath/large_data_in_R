@@ -178,13 +178,12 @@ The two types are as follows:
 - Data that "mostly fits" in memory. This is data where you can read the entire object in to memory, and even run some basic calculations on the set. However complicated calculations or data cleaning operations lead to you running out of memory.
 - Data that doesn't fit in memory. This is data where you can't even load what you need in to memory
 
-## Part 4: Working With Data that "Mostly Fits": Optimizing Memory Usage
+## Part 4: Working With Data that "Mostly Fits"
 
-### 4.1 General Strategies
 
-When working with data that "mostly fits", our main goals our to reduce the memory impact of all the computational processes being done. 
+When working with data that "mostly fits", our main goals our to reduce the memory impact of all the computational processes being done. There are a number of approaches to this, which include both explicit use of tools and techniques designed to reduce the memory impact of operations, and techniques for thinking about program flow to minimize what needs to be held in memory at any point in time.
 
-#### 4.1.1 In Place Changes
+#### 4.1 In Place Changes
 
 As previously discussed, R has unpredictable behavior with regard to data duplication. If a vector has been referred to at least twice at any point in the code, any change to that vector will lead to duplication of the entire vector. When we're dealing with data approaching the size of memory, any duplication poses the risk of creating an error and halting our program.
 
@@ -227,6 +226,57 @@ In general, R duplication is somewhat unpredictable, as it depends on the number
 
 Frequently, data cleaning operations contain mutation, filtering, and aggregation steps. When there is no risk of filling memory, the order these steps are performed doesn't matter. However, when memory usage needs to be taken in to consideration, we no longer have the same flexibility in our approaches.
 
+Let's imagine we have a nationwide panel data set of individuals where we hav one observation per person per year, where we know each person's age, gender, and state of residence. 
+
+We want to calculate the number of men and women in three different age groups (18-34, 35-64, 65+) for just the population in CA and CT. 
+
+What do we need to calculate to do this? We need to:
+
+- Tag individuals with an indicator for their age group
+- Create counts for each state of individuals by gender and age group
+- Restrict the data to only include individuals in CA and CT
+- Restrict the data to only include individuals older than 18
+
+We can categorize each of these processes as either adding information or reducing information in the data set. 
+
+Let's constuct the data set:
+
+```{R}
+set.seed(111917)
+people <- data.table(state = sample(c("WA","MA","NY", "CA", "CT"), 1e6, replace = T),
+                     age = sample(100L, 1e6, replace = T),
+                     gender = sample(c("M","F","NB"), 1e6, replace = T))
+summary(people)
+```
+We want to minimize the complexity and size of any calculations that need to be done with this data. Therefore we want to do all steps that reduce the size of the data prior to adding any information to the data set.
+
+```{R}
+tracemem(people)
+cut_set <- people[state %in% c("CA", "CT")]
+untracemem(people)
+
+tracemem(cut_set)
+cut_set <- cut_set[age >= 18]
+tracemem(cut_set)
+nrow(cut_set)
+untracemem(cut_set)
+```
+After these two steps, we've reduced the data set from 1 million observations to just 68k. Now all future calculatoins will be performed on a set less than 10% the size of the original data. 
+
+A couple things to note. We didn't perform the aggregation step (despite the fact that that would reduce the data size even more), as that step is dependent on assigning age groups to each individual. Often times some restricting steps are dependent on other steps that add information. Data processing is a series of reducing things as much as possible, adding needed information, than reducing things again.
+
+Also note that while there was no duplication reported by tracemem, the memory address of the objects in changed after each assignment step. Even when using data.table, we still need to allocate new memory when we filter data like this. Therefore, it's important to know the distribution of values and to perform the largest restrictions first. Since we do know our distributions here, we restricted by state first (60% reduction), and then by age (18% reduction).
+
+Finishing out the process, we assign age groups, and then do our final aggregation:
+```{R}
+tracemem(cut_set)
+cut_set[age >= 18 & age < 35, age_grp:= "18-34"]
+cut_set[age >= 35 & age < 65, age_grp := "35-64"]
+cut_set[age >= 65, age_grp := "65+"]
+agg_data <- cut_set[, .(count = .N), by = c("state", "age_grp", "gender")]
+agg_data
+```
+
 ### 4.4 Manage Data Types
 
 As previously mentioned, R vectors contain many atomic values, each of which is ultimately one of the base data types in R. These atomic data types have varying sizes. While the size of these atomic objects differs only on the level of bytes, when multiplied millions or billions of times, these small differences add up. 
@@ -264,8 +314,195 @@ object.size(int_str_vec)
 ```
 The reason for this difference is that in order to optimize memory usage, R sets up a "string pool". where it stores all unique strings. Vectors of strings are then just pointers to objects in that shared string pool. This is why the string representation of all numbers 1-1,000,000 is much larger than a vector of repeated long strings. This also reduces the need for contiguous memory when dealing with strings, as we only need contiguous memory for the pointers, and not for the strings themselves.
 
+### 4.5 Explicit Memory Management
+
+#### 4.5.1 `rm()`
+
+A general principle of optmizing your code for memory is that you should only keep the things you need. If you created a large vector that you're now done with, you can remove the reference by using the `rm()` function. Note that this won't free the memory immediately, R will simply no longer be able to find the data in question. The memory will ultimately be freed when the garbage collector is run, which brings up the question of
+
+#### 4.5.2 `gc()`
+
+To quote from Hadley Wikham's advanced R:
+
+>R uses a tracing GC. This means it traces every object that’s reachable from the global18 environment, and all objects that are, in turn, reachable from those objects (i.e. the references in lists and environments are searched recursively). The garbage collector does not use the modify-in-place reference count described above. While these two ideas are closely related, the internal data structures are optimised for different use cases.
+>
+> The garbage collector (GC) runs automatically whenever R needs more memory to create a new object. Looking from the outside, it’s basically impossible to predict when the GC will run. In fact, you shouldn’t even try. If you want to find out when the GC runs, call `gcinfo(TRUE)` and GC will print a message to the console every time it runs.
+>
+> You can force garbage collection by calling `gc()`. But despite what you might have read elsewhere, there’s never any need to call `gc()` yourself. The only reasons you might want to call `gc()` is to ask R to return memory to your operating system so other programs can use it, or for the side-effect that tells you how much memory is currently being used.
+
+Key take aways from this:
+
+- Calling `rm()` removes a reference to an object. When there are no global references to an object, it is eligible for deletion during garbage collection.
+- Garbage collection is a background process, called by R when more memory is needed.
+- Theoretically, you never need to call `gc()`. That said, sometimes calling `gc()` appears to make more memory avaiable. It's possible that this reduces some memory sharding issues, but it could also just be the higher mysteries of R.
 
 ## Part 5: Working With Data That "Doesn't Fit"
+
+The techniques we have covered so far can help minimize memory usage when we have a data set in memory, but what happens when the data we need to analyze is larger than the memory we have access to?
+
+Lets return to the diagram of data flow:
+
+![Data flow redux](images/Computer Data Flow.png)
+Looking at this, we see that memory is basically a holding space in between disk and the CPU. We use it because I/O operations are super slow (in computing terms), but there's nothing that says we need to hold our entire data set at memory at any particular point. If our data set doesn't fit in memory, we can find ways to calculate partial products from portions of the data set, and then combine these smaller results to get what we need.
+
+### 5.1 Partial Products
+
+Imagine we have a very tiny comupter, that can only hold 16 numbers at a time in memory. How could we calculate the average of a vector of ~1 million numbers?
+
+What do we need to know to calculate this?
+
+- Running sum
+- Number of observations
+- current position in file
+
+```{R}
+big_data <- sample(4572532, sample(1e6:1000100, 1), replace = T)
+
+buffer_size <- 8
+running_sum <- 0
+num_obs <- 0
+current_pos <- 1
+
+while(TRUE) {
+  buffer <- big_data[current_pos:(current_pos + buffer_size - 1)]
+  buffer <- buffer[!is.na(buffer)]
+  
+  # update counts
+  for (val in buffer) {
+    running_sum <- running_sum + val
+    num_obs <- num_obs + 1
+  }
+  
+  # update position
+  current_pos <- current_pos + buffer_size
+  
+  # check if we're at the end
+  if (length(buffer) < buffer_size) {
+    break
+  }
+}
+
+cat(paste0("Our Mean: ", running_sum/num_obs, "\n"))
+cat(paste0("Built In Mean: ", mean(big_data), "\n"))
+```
+
+If you try to run this on your own, you'll notice that this partial product is much slower than the default mean calculation. R's built in functions are highly optomized for vectorized data, and for loops in R are notoriously slow. However, if the source data was not a vector, but rather a file on disk, running something slowly is better than not being able to run it at all.
+
+
+### 5.2 Data Streaming - `chunked` + `sqlite`
+
+Data streaming is a method of reading in parts of a file at a time. If we're faced with a large csv file, we can use the chunked package to stream it and perform `dplyr` like data operations on it. In this example we demonstrate how to join two csv files using a streaming technique.
+
+```{R, eval = F}
+## Code Creating the toy data sets
+
+df1 <- expand.grid(year = 2000:2009, zip = 1:9e4)
+df1$x <- rnorm(nrow(df1))
+fwrite(df1, "data/df1.csv")
+
+df2 <- expand.grid(year = 2000:2009, zip = 1:9e4)
+df2$x <- rnorm(nrow(df2))
+fwrite(df2, "data/df2.csv")
+```
+
+A process for joining these two large files, while using practically no memory looks like the following:
+
+```{R, eval = F}
+library(chunked)
+
+## Chunked by default can't handle missing values, line here handles that
+## We need to give chunked a data model so it knows what to expect
+df1_stream <- LaF::laf_open(LaF::detect_dm_csv("data/df1.csv", header = T), ignore_failed_conversion = T)
+df1_stream <- read_chunkwise(df1_stream)
+
+df2_stream <- LaF::laf_open(LaF::detect_dm_csv("data/df2.csv", header = T), ignore_failed_conversion = T)
+df2_stream <- read_chunkwise(df2_stream)
+
+out <- left_join(df1_stream, df2_stream, by = c("zip", "year"), copy = T)
+write_chunkwise(out, "cache/df3.csv")
+```
+
+This works. However, our ability to do some operations is limited. We can use streaming in conjunction with a temporary sqlite database. However debugging that can prove challenging. This method can also be quite slow, as processing text files is inefficient, not to mention the number of IO operations occuring.
+
+
+### 5.4 Data Sharding
+
+Streaming data is generally useful, however it presents a couple challenges. First, is the general speed. Second is that typically we're interested in only working with portions of our data at any point. If we're streaming csv files, we have to traverse the entire file to get what we want. 
+
+A better approach can involve splitting our data in to shards ahead of time (informed by our sense of how the data will be used), ideally in to a data format that will allow us to also read in only single columns at a time.
+
+#### 5.3.1 Basic Tabular Data: `.fst` files
+
+Here use `ripgrep`, an optimized version of grep to quickly break up our files by year. Note that this method require being aware of patterns in the data and thinking through how to use those to shard the data.
+
+FST files are a compressed binary format with an R and Julia interface that permits us to select columns from the data frame to use prior to reading data in to memory.
+
+```{R, message = F}
+library(fst)
+df1_names <- names(fread("head data/df1.csv"))
+system("mkdir cache/df1_shards")
+
+for (year in 2000:2009) {
+  df1_year <- fread(paste0("rg ^", year, ", data/df1.csv"))
+  names(df1_year) <- df1_names
+  write.fst(df1_year, paste0("cache/df1_shards/df1_", year, ".fst"))
+}
+
+summary(df1_year)
+```
+Note that we had to specify the begining of the line in the regex, as our made up zip codes could have values that look like the year if that wasn't there.
+
+We can then use these sharded files to only read in years and columns that we're interested in.
+
+```{R}
+fst.metadata("cache/df1_shards/df1_2000.fst")
+
+years <- c(2002, 2005)
+columns = c("zip", "x")
+files <- list.files("cache/df1_shards", pattern = ".fst", full.names = T)
+
+## extract suffix, ensure is in years
+  files <- files[substr(tools::file_path_sans_ext(files),
+                        nchar(tools::file_path_sans_ext(files)) - 3,
+                        nchar(tools::file_path_sans_ext(files)))
+                 %in% years]
+  df1 <- rbindlist(lapply(files, read_fst, as.data.table = T, columns = columns))
+  df1[zip == 1738]
+  
+  ## clean up folder
+  system("rm -r cache/df1_shards")
+```
+Here we see that after sharding, and using the .fst files ability to select columns, we were able to quickly just get the values we were interested in.
+
+
+#### 5.3.2 More Complex Data: HDF5 files
+
+FST files work well enough when we want to shard on a single variable. However managing data shared on multiple variables becomes challenging, given our reliance on creating useful a file naming system to manage the sharded data.
+
+HDF5 files provide a means to directly store objects in a file system like strucutre, and to contain all that within a single file on disk. We can also store data documentation in the same file as our data, which makes sharing and transporting these systems easier.
+
+To work with hdf5 files in R, we use the `rhdf5` package, which is not available on CRAN, but rather from bioconductor, an R ecosystem designed primarily for bioinformatics work. We installed it in the conda environment for this class. If you need it in the future, you can install it in any conda environment using the command
+```
+conda install -c bioconda bioconductor-rhdf5
+```
+
+Here we use an HDF5 to store subsets of our data frame and to allow users to read in parts of the data broken up by year and sets of 10000 fake zip codes. Ultimately how best to structure your hdf5 files depends on your application.
+
+First we create the HDF5 file and the groups that we'll be using to organize our data.
+
+### 5.5 Other Approaches
+
+The approaches we've covered today work with minimal infrastructure, and can easily work on both personal computers and in cluster environments. There are other techniques out there, all of which merit their own workshops, we'll briefly touch on these just to give people a sense of what's out there.
+
+#### 5.4.1 Databases
+
+SQL based database systems are the classic solution for dealing with complex data that exceeds the size of memory. The DBMS handles calculations of partial products in memory as well as handling optimizatoin of the query plan. However most database systems require dedicated servers and are often not the best fit for academic research projects.
+
+That said, we can use systems like sqlite to create temporary file based databases that can support data operations without the use of significant memory.
+
+#### 5.4.2 MPI Interfaces on HPC
+
+#### 5.4.3 Spark
 
 ## Additional Resources
 

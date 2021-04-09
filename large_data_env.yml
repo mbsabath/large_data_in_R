@@ -8,4 +8,5 @@ dependencies:
   - r-fst
   - bioconductor-rhdf5
   - rstudio
+  - ripgrep
 prefix: /opt/anaconda3/envs/large_data_in_R
