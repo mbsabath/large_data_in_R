@@ -3,7 +3,7 @@ Vector
 ================
 Ben Sabath
 
-Updated April 08, 2021
+Updated April 09, 2021
 
 ------------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ packages you need installed, I’ve provided a `conda` environment in this
 repo for your use.
 
 Note: This course assumes that you are comfortable using the command
-line and are working on a unix based system (MacOS or Linux). The
+line and are working on a Unix based system (MacOS or Linux). The
 assistance I’ll be able to provide for attendees with windows computers
 will be limited.
 
@@ -46,7 +46,7 @@ for this course. The easiest way to download all of the materials and
 have them properly arranged is to clone this repo. To do this run the
 following command
 
-    git clone git@github.com:FASRC/blah blah blah
+    git clone git@github.com:mbsabath/large_data_in_R
 
 This will create a local copy of this repo on your computer. `cd` to
 that directory for the rest of this setup.
@@ -95,8 +95,8 @@ terminal. To start Rstudio from the terminal, enter
 
     rstudio
 
-from the terminal where you’ve activated the envionment. The rstudio
-window that opens will have all required pacakges already installed,
+from the terminal where you’ve activated the environment. The rstudio
+window that opens will have all required packages already installed,
 with the exception of the `chunked` package, which is not available
 through conda. To install that package, please run:
 
@@ -110,11 +110,11 @@ Once `chunked` is installed, your environment is good to go!
 
 ### 1.1: Defining Big Data
 
-There is often discussion oin data science circles about “what counts”
-as big data. For some, it’s data that can’t fit in memory, for others
-it’s data so big, it can’t fit on a single hard drive. It might be one
-single large file, or TBs upon TBs of small files. It might just be an
-excel file large enough that Excel complains when you use it.
+There is often discussion in data science circles about “what counts” as
+big data. For some, it’s data that can’t fit in memory, for others it’s
+data so big, it can’t fit on a single hard drive. It might be one single
+large file, or TBs upon TBs of small files. It might just be an excel
+file large enough that Excel complains when you use it.
 
 ![Qui Gon Jinn](images/Qui-Gon-Jinn_d89416e8.jpeg) *There’s always
 bigger data - Qui Gon Jinn*
@@ -135,8 +135,8 @@ That is the problem this workshop will seek to address.
 When thinking about and working with data, it’s important to understand
 the layers of abstraction present and how they interact with each other.
 Think of an html file. On disk, the file is just a structured section of
-bits. However, depdning on how its encoded (either ASCII or UTF-8), we
-have instructuions for how to interpret those bits as a text file. An
+bits. However, depending on how its encoded (either ASCII or UTF-8), we
+have instructions for how to interpret those bits as a text file. An
 html file in text format is more readable than the raw bits and can be
 edited by a knowledgeable web developer; however, it is not until the
 final layer of abstraction, when the information contained in the page
@@ -152,7 +152,7 @@ abstraction layers that define how those bits should be interpreted.
 
 CSVs, TSVs, and Fixed width files are all text based formats that are
 typically used to define data frame like data. They are useful as they
-are both human and machine readable, but text is a realtively
+are both human and machine readable, but text is a relatively
 inefficient way to store data.
 
 There are also a number of binary formats (which often also have some
@@ -165,7 +165,7 @@ human readability.
 
 *Note: this section is an over simplification*
 
-This will be discussed more in oart 2, but when working with large data
+This will be discussed more in part 2, but when working with large data
 it’s important to have a sense of what computer memory is. We can think
 of computer memory as a long tape. When data is loaded in to memory and
 assigned to a variable, such as when you run a line like
@@ -176,21 +176,22 @@ x <- 1:100
 
 the operating system finds a section of memory large enough to contain
 that object (in this case 100 integers), reserves it, and then connects
-its locatoin in memory to the variable. Some objects need to all be on a
+its location in memory to the variable. Some objects need to all be on a
 contiguous section of the tape, some objects can be spread across
 multiple parts of it. Regardless, the program needs to know interpret
 the bits stored in memory as a given object. How much space objects take
 up depends on the system, but the classic base objects in C are as
 follows:
 
--   integer: 32 or 64 bits
+-   integer: 32 or 64 bits, depending on architecture
 -   double: floating point, typically 64 bits
 -   char: typically 8 bits
--   boolean: 1 bit
+-   boolean: In theory could be 1 bit, in practice varies by language
+    and processor
 
 One common type not seen here is the string. strings are arrays of
 characters stored in memory. The characters need to be in a contiguous
-section of memoery, otherwise the system will not be able to interept
+section of memory, otherwise the system will not be able to interpret
 them as a single string.
 
 ### 1.3 Flow of Data in a Program
@@ -205,7 +206,7 @@ There are limits on this. A single CPU can only do one calculation at a
 time, so if we have a lot of calculations to do, things may take a
 while. Similarly, memory can only hold so much data, and if we go over
 that limit, we either get an error, or have to find some work around.
-Understanding this flow is key to analyizing how to find those
+Understanding this flow is key to analyzing how to find those
 workarounds, and what the limits on our workarounds are.
 
 ## Part 2: How Does R Work With Memory?
@@ -220,6 +221,10 @@ covers.
 
 Why do people use R? There are a number of other statistical programming
 languages out there.
+
+``` r
+library(lobstr)
+```
 
 ### 2.2 Variable Assignment and Copy behavior
 
@@ -282,9 +287,33 @@ data cleaning operations lead to you running out of memory. - Data that
 doesn’t fit in memory. This is data where you can’t even load what you
 need in to memory
 
-## Part 4: Working With Data that “Mostly Fits”
+## Part 4: Working With Data that “Mostly Fits”: Optimizing Memory Usage
 
 ### 4.1 General Strategies
+
+When working with data that “mostly fits”, our main goals our to reduce
+the memory impact of all the computational processes being done.
+
+#### 4.1.1 In Place Changes
+
+As previously discussed, R has unpredictable behavior with regard to
+data duplication. If a vector has been referred to at least twice at any
+point in the code, any change to that vector will lead to duplication of
+the entire vector. When we’re dealing with data approaching the size of
+memory, any duplication poses the risk of creating an error and halting
+our program.
+
+Working with In Place changes is the best way to avoid this duplication.
+R List objects don’t require contiguous blocks of memory and allow for
+in place changes. However, many of the default functions in R do not
+support vectorized operations on list objects. Additionally, since the
+standard Data Frame object in R is a list of vectors, we are unable to
+do in place data manipulation with the tools in base R.
+
+It is worth mentioning that pandas data tables in python, the standard
+method for python data analysis have default support for in place
+operations. While R is the standard tool in many academic disciplines,
+Python is a strong alternative approach for many applications.
 
 ### 4.2 Inplace Data Frame Manipulation with `data.table`
 
@@ -295,13 +324,163 @@ processing. It also supports in place mutation operations on
 data.frames, as well as having a nice syntax for data aggregation and
 data joining.
 
+To demonstrate this, lets create two reasonably sized random data
+frames, one using a standard R data frame, and one using `data.table`.
+
 ``` r
+set.seed(111917)
 library(data.table)
+
+df <- data.frame(x = rnorm(1e6), y = rnorm(1e6), z = rep_len(c("a", "b"), 1e6))
+dt <- data.table(x = rnorm(1e6), y = rnorm(1e6), z = rep_len(c("a", "b"), 1e6))
 ```
+
+Show data duplication within df
+
+``` r
+tracemem(df)
+```
+
+    ## [1] "<0x7f885d6880c8>"
+
+``` r
+df$x <- df$x + 1
+```
+
+    ## tracemem[0x7f885d6880c8 -> 0x7f885f080328]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7f885f080328 -> 0x7f885f0803c8]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7f885f0803c8 -> 0x7f885f0804b8]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+
+``` r
+untracemem(df)
+```
+
+No duplication with `data.table`
+
+``` r
+tracemem(dt)
+```
+
+    ## [1] "<0x7f886301b400>"
+
+``` r
+dt[, x := x+1]
+untracemem(dt)
+```
+
+In place memory work also improves computational speed and efficiency.
+There are a number of reasons that `data.table` is faster than the
+standard R implementation, but a large part of that is that R no longer
+needs to wait for the system to allocate additional memory for each of
+these calculations.
+
+In general, R duplication is somewhat unpredictable, as it depends on
+the number of times an object has been referenced at any point during a
+session. `tracemem` is a necessity for identifying duplication events.
+However for complex calculations that can’t be implemented using
+`data.table` or other packages specifically built for in place
+calculations, you may need to implement your algorithm using `rcpp` or
+with the R API in C.
+
+### 4.3 Avoid Keeping Uneeded Data in Memory
+
+Frequently, data cleaning operations contain mutation, filtering, and
+aggregation steps. When there is no risk of filling memory, the order
+these steps are performed doesn’t matter. However, when memory usage
+needs to be taken in to consideration, we no longer have the same
+flexibility in our approaches.
+
+### 4.4 Manage Data Types
+
+As previously mentioned, R vectors contain many atomic values, each of
+which is ultimately one of the base data types in R. These atomic data
+types have varying sizes. While the size of these atomic objects differs
+only on the level of bytes, when multiplied millions or billions of
+times, these small differences add up.
+
+Let’s start by comparing `interger` and `float` vectors:
+
+``` r
+int_vec <- rep_len(2L, 1e6)
+float_vec <- rep_len(2, 1e6)
+object.size(int_vec)
+```
+
+    ## 4000048 bytes
+
+``` r
+object.size(float_vec)
+```
+
+    ## 8000048 bytes
+
+Here we see that the integer vector, specified by using the `L`
+following the number is half the size of the float vector, which was
+created with syntax more like standard R.
+
+However, memory usage based on data type is not always predictable. We
+can see this when looking at boolean variables. Theoretically, a boolean
+should be representable with a single bit, and maybe two bits if we need
+to account for `NA` values. Let’s see what actually happens:
+
+``` r
+int_vec <- rep_len(c(0L, 1L), 1e6)
+bool_vec <- rep_len(c(T, F), 1e6)
+object.size(int_vec)
+```
+
+    ## 4000048 bytes
+
+``` r
+object.size(bool_vec)
+```
+
+    ## 4000048 bytes
+
+Boolean vectors and integer vectors are the exact same size. This is
+because R stores boolean vectors as 32 bits, even though most bits
+aren’t needed logically.
+
+String vectors are also an interesting case. Keeping in mind that each
+character in a string is one byte, we’d expect a vector of repeated long
+strings to be significantly larger than an equivalent integer vector:
+
+``` r
+int_vec <- 1:1e6
+str_vec <- rep_len(c("Really long string number one",
+                     "Second long string, that is even longer than the first"),
+                   1e6)
+int_str_vec <- as.character(int_vec)
+object.size(int_vec)
+```
+
+    ## 4000048 bytes
+
+``` r
+object.size(str_vec)
+```
+
+    ## 8000240 bytes
+
+``` r
+object.size(int_str_vec)
+```
+
+    ## 64000048 bytes
+
+The reason for this difference is that in order to optimize memory
+usage, R sets up a “string pool”. where it stores all unique strings.
+Vectors of strings are then just pointers to objects in that shared
+string pool. This is why the string representation of all numbers
+1-1,000,000 is much larger than a vector of repeated long strings. This
+also reduces the need for contiguous memory when dealing with strings,
+as we only need contiguous memory for the pointers, and not for the
+strings themselves.
 
 ## Part 5: Working With Data That “Doesn’t Fit”
 
 ## Additional Resources
 
 -   [Hadley Wickham’s Advanced R](https://adv-r.hadley.nz/index.html)
--   \[Data.Table Syntax Cheat Sheet\]
+-   [Data.Table Syntax Cheat
+    Sheet](https://www.datacamp.com/community/tutorials/data-table-cheat-sheet)
