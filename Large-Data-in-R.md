@@ -3,7 +3,7 @@ Vector
 ================
 Ben Sabath
 
-Updated April 09, 2021
+Updated April 12, 2021
 
 ------------------------------------------------------------------------
 
@@ -343,15 +343,15 @@ Show data duplication within df
 tracemem(df)
 ```
 
-    ## [1] "<0x7f8c3d472f18>"
+    ## [1] "<0x7ffcf489cdb8>"
 
 ``` r
 df$x <- df$x + 1
 ```
 
-    ## tracemem[0x7f8c3d472f18 -> 0x7f8c3ecd02c8]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
-    ## tracemem[0x7f8c3ecd02c8 -> 0x7f8c3ecd0318]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
-    ## tracemem[0x7f8c3ecd0318 -> 0x7f8c3ecd0688]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+    ## tracemem[0x7ffcf489cdb8 -> 0x7ffcf43c71d8]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7ffcf43c71d8 -> 0x7ffcf43c7228]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7ffcf43c7228 -> 0x7ffcf43c7278]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
 
 ``` r
 untracemem(df)
@@ -363,7 +363,7 @@ No duplication with `data.table`
 tracemem(dt)
 ```
 
-    ## [1] "<0x7f8c3d465800>"
+    ## [1] "<0x7ffcf71d9000>"
 
 ``` r
 dt[, x := x+1]
@@ -436,7 +436,7 @@ set.
 tracemem(people)
 ```
 
-    ## [1] "<0x7f8c3ef7fc00>"
+    ## [1] "<0x7ffcf85b6a00>"
 
 ``` r
 cut_set <- people[state %in% c("CA", "CT")]
@@ -445,14 +445,14 @@ untracemem(people)
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7f8c3d997000>"
+    ## [1] "<0x7ffcf844ca00>"
 
 ``` r
 cut_set <- cut_set[age >= 18]
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7f8c4a1eb400>"
+    ## [1] "<0x7ffcf584c600>"
 
 ``` r
 nrow(cut_set)
@@ -490,7 +490,7 @@ aggregation:
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7f8c4a1eb400>"
+    ## [1] "<0x7ffcf584c600>"
 
 ``` r
 cut_set[age >= 18 & age < 35, age_grp:= "18-34"]
@@ -804,7 +804,7 @@ df1_names <- names(fread("head data/df1.csv"))
 system("mkdir cache/df1_shards")
 
 for (year in 2000:2009) {
-  df1_year <- fread(paste0("rg ^", year, ", data/df1.csv"))
+  df1_year <- fread(cmd = paste0("rg ^", year, ", data/df1.csv"))
   names(df1_year) <- df1_names
   write.fst(df1_year, paste0("cache/df1_shards/df1_", year, ".fst"))
 }
@@ -813,12 +813,12 @@ summary(df1_year)
 ```
 
     ##       year           zip              x            
-    ##  Min.   :2009   Min.   :    1   Min.   :-4.688803  
-    ##  1st Qu.:2009   1st Qu.:22501   1st Qu.:-0.675088  
-    ##  Median :2009   Median :45000   Median : 0.006043  
-    ##  Mean   :2009   Mean   :45000   Mean   : 0.001820  
-    ##  3rd Qu.:2009   3rd Qu.:67500   3rd Qu.: 0.685264  
-    ##  Max.   :2009   Max.   :90000   Max.   : 4.249610
+    ##  Min.   :2009   Min.   :    1   Min.   :-4.361964  
+    ##  1st Qu.:2009   1st Qu.:22501   1st Qu.:-0.683256  
+    ##  Median :2009   Median :45000   Median :-0.008948  
+    ##  Mean   :2009   Mean   :45000   Mean   :-0.007665  
+    ##  3rd Qu.:2009   3rd Qu.:67500   3rd Qu.: 0.662514  
+    ##  Max.   :2009   Max.   :90000   Max.   : 4.940430
 
 Note that we had to specify the begining of the line in the regex, as
 our made up zip codes could have values that look like the year if that
@@ -853,8 +853,8 @@ files <- list.files("cache/df1_shards", pattern = ".fst", full.names = T)
 ```
 
     ##     zip          x
-    ## 1: 1738 -1.7889709
-    ## 2: 1738  0.6299104
+    ## 1: 1738 -1.0500219
+    ## 2: 1738 -0.2415018
 
 ``` r
   ## clean up folder
@@ -877,11 +877,12 @@ like strucutre, and to contain all that within a single file on disk. We
 can also store data documentation in the same file as our data, which
 makes sharing and transporting these systems easier.
 
-To work with hdf5 files in R, we use the `rhdf5` package, which is not
-available on CRAN, but rather from bioconductor, an R ecosystem designed
-primarily for bioinformatics work. We installed it in the conda
-environment for this class. If you need it in the future, you can
-install it in any conda environment using the command
+To work with hdf5 files in R, we use the [`rhdf5`
+package](https://bioconductor.org/packages/release/bioc/vignettes/rhdf5/inst/doc/rhdf5.html),
+which is not available on CRAN, but rather from bioconductor, an R
+ecosystem designed primarily for bioinformatics work. We installed it in
+the conda environment for this class. If you need it in the future, you
+can install it in any conda environment using the command
 
     conda install -c bioconda bioconductor-rhdf5
 
@@ -893,6 +894,156 @@ on your application.
 First we create the HDF5 file and the groups that we’ll be using to
 organize our data.
 
+``` r
+library(rhdf5)
+
+h5_file <- "cache/hdf_example.h5"
+h5createFile(h5_file)
+```
+
+    ## [1] TRUE
+
+``` r
+for (year in 2007:2009) {
+  h5createGroup(h5_file, as.character(year))
+}
+h5ls(h5_file)
+```
+
+    ##   group name     otype dclass dim
+    ## 0     / 2007 H5I_GROUP           
+    ## 1     / 2008 H5I_GROUP           
+    ## 2     / 2009 H5I_GROUP
+
+This secton of code creates an empty hdf5 file. Data in hdf5 files is
+stored within a tree like structure. Groups can contain either other
+groups, or data objects (which can include most data objects in R,
+including data frames). We can structure highly dimensional data with
+these groups, and depending on our set up, enable us to filter data on
+multiple fields at once prior to reading anything in to memory.
+
+Let’s now load data in to our hdf5 file using a loop. Note that
+everything loaded in to an hdf5 file through R needs to pass through
+memory at least once, so other methods may be need to used to break
+large data up prior to loading, or pipelines should be designed to never
+create single large files.
+
+We’re able to load it in through a loop from our data frame as our
+example data is small, all things considered.
+
+``` r
+df2 <- fread("data/df2.csv")
+
+for (year_ in 2007:2009) {
+  for (zip_ in seq(1e4, 9e4, 1e4)) {
+    h5write(df2[year == year_ & zip > (zip_-1e4) & zip <= zip_], h5_file, paste0(year_,"/", zip_))
+  }
+}
+h5ls(h5_file)
+```
+
+    ##    group  name       otype   dclass   dim
+    ## 0      /  2007   H5I_GROUP               
+    ## 1  /2007 10000 H5I_DATASET COMPOUND 10000
+    ## 2  /2007 20000 H5I_DATASET COMPOUND 10000
+    ## 3  /2007 30000 H5I_DATASET COMPOUND 10000
+    ## 4  /2007 40000 H5I_DATASET COMPOUND 10000
+    ## 5  /2007 50000 H5I_DATASET COMPOUND 10000
+    ## 6  /2007 60000 H5I_DATASET COMPOUND 10000
+    ## 7  /2007 70000 H5I_DATASET COMPOUND 10000
+    ## 8  /2007 80000 H5I_DATASET COMPOUND 10000
+    ## 9  /2007 90000 H5I_DATASET COMPOUND 10000
+    ## 10     /  2008   H5I_GROUP               
+    ## 11 /2008 10000 H5I_DATASET COMPOUND 10000
+    ## 12 /2008 20000 H5I_DATASET COMPOUND 10000
+    ## 13 /2008 30000 H5I_DATASET COMPOUND 10000
+    ## 14 /2008 40000 H5I_DATASET COMPOUND 10000
+    ## 15 /2008 50000 H5I_DATASET COMPOUND 10000
+    ## 16 /2008 60000 H5I_DATASET COMPOUND 10000
+    ## 17 /2008 70000 H5I_DATASET COMPOUND 10000
+    ## 18 /2008 80000 H5I_DATASET COMPOUND 10000
+    ## 19 /2008 90000 H5I_DATASET COMPOUND 10000
+    ## 20     /  2009   H5I_GROUP               
+    ## 21 /2009 10000 H5I_DATASET COMPOUND 10000
+    ## 22 /2009 20000 H5I_DATASET COMPOUND 10000
+    ## 23 /2009 30000 H5I_DATASET COMPOUND 10000
+    ## 24 /2009 40000 H5I_DATASET COMPOUND 10000
+    ## 25 /2009 50000 H5I_DATASET COMPOUND 10000
+    ## 26 /2009 60000 H5I_DATASET COMPOUND 10000
+    ## 27 /2009 70000 H5I_DATASET COMPOUND 10000
+    ## 28 /2009 80000 H5I_DATASET COMPOUND 10000
+    ## 29 /2009 90000 H5I_DATASET COMPOUND 10000
+
+Note that changing data previously written to and HDF5 file can be
+complex. While HDF5 files do support some in place data changes, once
+data is written to a file, it is difficult to implement major changes
+without deleting and recreating the entire file.
+
+Once written, reading data from hdf5 files is simple. Let’s say we want
+a data frame of “zip codes” 20001-30k for all three years we’ve stored,
+we can create that data with the following loop, only taking in the data
+that we need to memory:
+
+``` r
+out <- NULL
+for (year in 2007:2009) {
+  out <- rbind(out, h5read(h5_file, paste0(year, "/30000")))
+}
+summary(out)
+```
+
+    ##       year           zip              x            
+    ##  Min.   :2007   Min.   :20001   Min.   :-4.181342  
+    ##  1st Qu.:2007   1st Qu.:22501   1st Qu.:-0.662119  
+    ##  Median :2008   Median :25000   Median : 0.018238  
+    ##  Mean   :2008   Mean   :25000   Mean   : 0.008215  
+    ##  3rd Qu.:2009   3rd Qu.:27500   3rd Qu.: 0.687082  
+    ##  Max.   :2009   Max.   :30000   Max.   : 4.332899
+
+One final useful aspect of hdf5 files is that we are not limited to
+storing data frame like data, and can combine multiple types of
+information in to a single file for easy sharing. For example, we could
+package a data dictionary along with our sharded data. We can either
+directly store strings in the file as data objects, or store a list
+containing all data documentation information in a single object. Both
+methods are valid, and your choice depends on your needs.
+
+``` r
+## Individual String Storage
+h5createGroup( h5_file, "data_dict")
+```
+
+    ## [1] TRUE
+
+``` r
+h5write("zip code", h5_file, "data_dict/zip")
+h5write("current year", h5_file, "data_dict/year")
+h5write("totally useful, not random values", h5_file, "data_dict/x")
+## Get Doc string
+print(h5read(h5_file, "data_dict/x"))
+```
+
+    ## [1] "totally useful, not random values"
+
+``` r
+## Store as list
+dict <- list()
+dict$zip <- "zip code"
+dict$year <- "current year"
+dict$x <- "totally useful, not random values"
+h5write(dict, h5_file, "docs")
+print(h5read(h5_file, "docs"))
+```
+
+    ## $x
+    ## [1] "totally useful, not random values"
+    ## 
+    ## $year
+    ## [1] "current year"
+    ## 
+    ## $zip
+    ## [1] "zip code"
+
 ### 5.5 Other Approaches
 
 The approaches we’ve covered today work with minimal infrastructure, and
@@ -901,25 +1052,69 @@ There are other techniques out there, all of which merit their own
 workshops, we’ll briefly touch on these just to give people a sense of
 what’s out there.
 
+Keep in mind that with these solutions, there is typically an increase
+in initial development time and a decrease in portability. It’s always
+important to keep in mind the needs of your applicatoin when planning
+your solutions.
+
 #### 5.4.1 Databases
 
 SQL based database systems are the classic solution for dealing with
 complex data that exceeds the size of memory. The DBMS handles
 calculations of partial products in memory as well as handling
-optimizatoin of the query plan. However most database systems require
+optimization of the query plan. However most database systems require
 dedicated servers and are often not the best fit for academic research
 projects.
 
-That said, we can use systems like sqlite to create temporary file based
-databases that can support data operations without the use of
-significant memory.
+That said, we can use systems like sqlite to create file based databases
+that can support data operations without the use of significant memory.
+Databases, whether sqlite or a more powerful implementation have the
+advantage of basically all using a form of SQL as their main language.
+SQL is defined by an international standard, and basically all computer
+languages and systems have pre-built tools for interacting with SQL
+databases.
+
+Database development and optimization is its own field of engineering,
+with enough material and nuance to require multiple university courses.
 
 #### 5.4.2 MPI Interfaces on HPC
 
+One of the simplest solutions to big data problems (when working on a
+cluster system, and/or computing cost isn’t a major concern) is to
+acquire more memory. However, with most tools in HPC computing
+environments we are physically limited by the total amount of memory
+available on a single node.
+
+[MPI](https://hpc-wiki.info/hpc/MPI) provides a way around this limit by
+providing a method for separate nodes to pass messages to each other and
+effectively serve as a shared memory system, with many child nodes being
+coordinated by a controlling parent node. Developing a program to work
+using MPI is a complex development process, although the [R MPI
+library](https://docs.rc.fas.harvard.edu/kb/r-mpi/) does exist to
+simplify integration between the base MPI library and R.
+
 #### 5.4.3 Spark
+
+[Apache Spark](https://spark.apache.org/) is a “a fast and general
+processing engine compatible with Hadoop data.” Spark clusters can
+support working with data larger than memory (and can automatically
+handle memory overflows by putting data on disk as necessary). Spark can
+be set up locally on a personal computer, or run on a cluster system
+managed by Kubernetes.
+
+[Sparklyr](https://spark.rstudio.com/) is a R library that provides an
+interface for Spark and allows for `dplyr` like syntax to be used with
+Spark objects and provides a wrapper around Spark’s built in Machine
+learning libraries.
+
+For more information on working with Spark in R, please see the free
+book [Mastering Spark in R](https://therinspark.com/).
 
 ## Additional Resources
 
 -   [Hadley Wickham’s Advanced R](https://adv-r.hadley.nz/index.html)
 -   [Data.Table Syntax Cheat
     Sheet](https://www.datacamp.com/community/tutorials/data-table-cheat-sheet)
+-   [Mastering Spark in R](https://therinspark.com/)
+-   [R HDF5
+    Vignette](https://bioconductor.org/packages/release/bioc/vignettes/rhdf5/inst/doc/rhdf5.html)
