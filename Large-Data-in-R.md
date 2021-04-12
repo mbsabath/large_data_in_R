@@ -186,7 +186,7 @@ follows:
 -   integer: 32 or 64 bits, depending on architecture
 -   double: floating point, typically 64 bits
 -   char: typically 8 bits
--   boolean: In theory could be 1 bit, in practice varies by language
+-   Boolean: In theory could be 1 bit, in practice varies by language
     and processor
 
 One common type not seen here is the string. strings are arrays of
@@ -217,20 +217,228 @@ R](https://adv-r.hadley.nz/names-values.html). I can’t recommend that
 enough as a resource to really understand what’s going on in R under the
 covers.
 
-### 2.1 R as a Language
+Understanding what we cover in this section is extremely important to
+our thinking about how to resolve memory issues in R. If we don’t
+understand how the language works, we’ll find ourselves fumbling around
+in the dark looking for solutions.
 
-Why do people use R? There are a number of other statistical programming
-languages out there.
+We’ll be using a mix of the `lobstr` package and R’s built in functions
+to get at some of what’s going on here.
 
 ``` r
 library(lobstr)
 ```
 
-### 2.2 Variable Assignment and Copy behavior
+### 2.1 R as a Language
 
-### 2.3 Data types and variable size
+Why do people use R? There are a number of other statistical programming
+languages out there. But users choose R for a number of reasons. One of
+the biggest, R is free. R is a descendant/open source re-implementation
+of the S programming language developed originally at Bell Labs, and has
+been in development as a language since the mid 90s.
 
-### 2.4
+The other big factor that leads to wide adoption of R as a language is
+its strong user and developer community. Numerous statistical techniques
+are available already implemented as R packages, and the R language has
+numerous feature that link to performant computer languages enabling
+optimization of the language.
+
+However, R is not without its problems. To quote from Advanced R:
+
+> Much of the R code you’ll see in the wild is written in haste to solve
+> a pressing problem. As a result, code is not very elegant, fast, or
+> easy to understand. Most users do not revise their code to address
+> these shortcomings.
+>
+> Compared to other programming languages, the R community is more
+> focussed on results than processes. Knowledge of software engineering
+> best practices is patchy. For example, not enough R programmers use
+> source code control or automated testing.
+>
+> R is not a particularly fast programming language, and poorly written
+> R code can be terribly slow. R is also a profligate user of memory.
+
+Many of these problems stem from most R development occurring in
+academic environments by students and researchers rather than in a more
+typical engineering environment. That said, there are always
+opportunities to improve R’s code and to work around its challenges.
+
+### 2.2 Building Blocks of R, Lists and Vectors
+
+One of R’s biggest strengths is its native support for vectorized
+operations. R’s users take for granted how easy it is to work with long
+vectors of data in the language, and how easy it is to quickly write
+code that executes large numbers of mathematical operations.
+
+The vector is the key object of R. Almost everything in R is a vector.
+When we execute even simple code like this:
+
+``` r
+print("hello world")
+```
+
+    ## [1] "hello world"
+
+The “\[1\]” next to our print statement tells us that we’re outputting a
+vector of length 1.
+
+There are two key types of vectors in R, “atomic vectors” and lists.
+
+![lists\_vectors](images/vector_lists.png)
+
+Typically, when R users say “vector” they are referring to an atomic
+vector.
+
+![atomic vector map](images/summary-tree-atomic.png) Atomic vectors
+consist of a single data type. Advanced R goes in to great detail on
+their characteristics, but for our purposes it’s also important to
+mention that atomic vectors require a contiguous block of memory.
+
+We can see this when we use the `ref` function from the `lobstr` package
+on a long vector and only get a single memory address.
+
+``` r
+x <- rnorm(1e6)
+ref(x)
+```
+
+    ## [1:0x7f95a6bc5000] <dbl>
+
+In contrast to atomic vectors, lists can have objects of multiple data
+types, including other lists. This behavior enables lists to be used to
+store oddly shaped and highly dimensional data, but comes at a
+performance and overhead cost. Lists are able to do this by storing the
+memory address of the data in question rather than the data itself.
+
+![list](images/list.png)
+
+When we create a list and ask for its memory address we see not just the
+address of the list, but also the addresses of the objects contained in
+the list.
+
+``` r
+x <- list(1,2,3)
+ref(x)
+```
+
+    ## █ [1:0x7f95a336bff8] <list> 
+    ## ├─[2:0x7f95a46fa020] <dbl> 
+    ## ├─[3:0x7f95a46f9fe8] <dbl> 
+    ## └─[4:0x7f95a46f9fb0] <dbl>
+
+### 2.3 Variable Assignment and Copy behavior
+
+Let’s walk through what’s happening in memory when we run something
+simple like
+
+``` r
+x <- c(1,2,3,4,5,6,7,8,9,10)
+```
+
+First, the systen finds space in memory that can hold 10 integers next
+to each other. Then that space is filled with the values 1-10. Finally,
+the address of that space is returned to R and then associated with the
+variable name x.
+
+In this section, we’re going to use the `tracemem` function to track
+when x is copied. `tracemem` is a memory tracking function available in
+base R, although it needs to be enabled at compile time to be available
+for use as it can impact code performance. Most personal computers have
+tracemem enabled, as does the RCE cluster at Harvard. It is not enabled
+on the Cannon cluster.
+
+``` r
+tracemem(x)
+```
+
+    ## [1] "<0x7f95a26ee138>"
+
+This returns the current memory address of x. Let’s see what happens
+when we do something to change x.
+
+``` r
+x[[2]] <- 5 
+```
+
+    ## tracemem[0x7f95a26ee138 -> 0x7f95a27836e8]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+
+``` r
+ref(x)
+```
+
+    ## [1:0x7f95a27836e8] <dbl>
+
+So here we see some evidence of copying behavior. This is unexpected
+behavior, but likely results from the Rmarkdown environment. Try running
+this same code in your console to see if it repeats.
+
+``` r
+y <- x
+```
+
+Now we execute it here:
+
+``` r
+y <- x
+```
+
+No output, let’s run `ref` to see what’s happening:
+
+``` r
+ref(x)
+```
+
+    ## [1:0x7f95a27836e8] <dbl>
+
+``` r
+ref(y)
+```
+
+    ## [1:0x7f95a27836e8] <dbl>
+
+They have the same address. We can model things in memory like this:
+![two names](images/binding-f2.png) So what happens if we want to change
+`x` again? `x` and `y` are pointing to the same object, maybe running
+something like `x[4] <- 4`. In languages like Python, if we did that, it
+would change the 3rd object for both variables. But what does R do?
+
+``` r
+x[4] <- 4
+```
+
+    ## tracemem[0x7f95a27836e8 -> 0x7f95a22533e8]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+
+Here we see another copy event recorded (this one expected).
+
+``` r
+ref(x)
+```
+
+    ## [1:0x7f95a22533e8] <dbl>
+
+``` r
+ref(y)
+```
+
+    ## [1:0x7f95a27836e8] <dbl>
+
+We see that `y` still points to the old location, but now `x` points to
+a new location.
+
+R’s default copying behavior is described as “copy on modify”. In
+theory, any object that is pointed to by at least two names will be
+copied when one of the variables is operated on in a way that can
+potentially change it. R tracks the number of times an object is
+referenced, but does so lazily. An object can be referenced 0 times, 1
+time, or “Many” times. If an object is referenced “Many” times, the copy
+on modify behavior is triggered. This sounds predictable but, as we saw,
+is anything but.
+
+We can’t know everywhere our objects are referenced, and Many minus one
+is still many. Therefore, the only way to know for sure when something
+is copied is to use the “tracemem” function. It is also a long distance
+from identifying where duplication is happening to eliminating that
+duplication.
 
 ## Part 3: Thinking about Memory Challenges in R
 
@@ -343,15 +551,15 @@ Show data duplication within df
 tracemem(df)
 ```
 
-    ## [1] "<0x7ffcf489cdb8>"
+    ## [1] "<0x7f95a02ca208>"
 
 ``` r
 df$x <- df$x + 1
 ```
 
-    ## tracemem[0x7ffcf489cdb8 -> 0x7ffcf43c71d8]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
-    ## tracemem[0x7ffcf43c71d8 -> 0x7ffcf43c7228]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
-    ## tracemem[0x7ffcf43c7228 -> 0x7ffcf43c7278]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+    ## tracemem[0x7f95a02ca208 -> 0x7f95a5b97108]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7f95a5b97108 -> 0x7f95a5b97158]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7f95a5b97158 -> 0x7f95a5b971a8]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
 
 ``` r
 untracemem(df)
@@ -363,7 +571,7 @@ No duplication with `data.table`
 tracemem(dt)
 ```
 
-    ## [1] "<0x7ffcf71d9000>"
+    ## [1] "<0x7f95a90cfe00>"
 
 ``` r
 dt[, x := x+1]
@@ -393,7 +601,7 @@ needs to be taken in to consideration, we no longer have the same
 flexibility in our approaches.
 
 Let’s imagine we have a nationwide panel data set of individuals where
-we hav one observation per person per year, where we know each person’s
+we have one observation per person per year, where we know each person’s
 age, gender, and state of residence.
 
 We want to calculate the number of men and women in three different age
@@ -409,7 +617,7 @@ What do we need to calculate to do this? We need to:
 We can categorize each of these processes as either adding information
 or reducing information in the data set.
 
-Let’s constuct the data set:
+Let’s construct the data set:
 
 ``` r
 set.seed(111917)
@@ -436,7 +644,7 @@ set.
 tracemem(people)
 ```
 
-    ## [1] "<0x7ffcf85b6a00>"
+    ## [1] "<0x7f95aa31a200>"
 
 ``` r
 cut_set <- people[state %in% c("CA", "CT")]
@@ -445,14 +653,14 @@ untracemem(people)
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7ffcf844ca00>"
+    ## [1] "<0x7f95a332d600>"
 
 ``` r
 cut_set <- cut_set[age >= 18]
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7ffcf584c600>"
+    ## [1] "<0x7f95a07d6600>"
 
 ``` r
 nrow(cut_set)
@@ -465,7 +673,7 @@ untracemem(cut_set)
 ```
 
 After these two steps, we’ve reduced the data set from 1 million
-observations to just 68k. Now all future calculatoins will be performed
+observations to just 68k. Now all future calculations will be performed
 on a set less than 10% the size of the original data.
 
 A couple things to note. We didn’t perform the aggregation step (despite
@@ -490,7 +698,7 @@ aggregation:
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7ffcf584c600>"
+    ## [1] "<0x7f95a07d6600>"
 
 ``` r
 cut_set[age >= 18 & age < 35, age_grp:= "18-34"]
@@ -549,7 +757,7 @@ following the number is half the size of the float vector, which was
 created with syntax more like standard R.
 
 However, memory usage based on data type is not always predictable. We
-can see this when looking at boolean variables. Theoretically, a boolean
+can see this when looking at Boolean variables. Theoretically, a Boolean
 should be representable with a single bit, and maybe two bits if we need
 to account for `NA` values. Let’s see what actually happens:
 
@@ -568,7 +776,7 @@ object.size(bool_vec)
     ## 4000048 bytes
 
 Boolean vectors and integer vectors are the exact same size. This is
-because R stores boolean vectors as 32 bits, even though most bits
+because R stores Boolean vectors as 32 bits, even though most bits
 aren’t needed logically.
 
 String vectors are also an interesting case. Keeping in mind that each
@@ -611,9 +819,9 @@ strings themselves.
 
 #### 4.5.1 `rm()`
 
-A general principle of optmizing your code for memory is that you should
-only keep the things you need. If you created a large vector that you’re
-now done with, you can remove the reference by using the `rm()`
+A general principle of optimizing your code for memory is that you
+should only keep the things you need. If you created a large vector that
+you’re now done with, you can remove the reference by using the `rm()`
 function. Note that this won’t free the memory immediately, R will
 simply no longer be able to find the data in question. The memory will
 ultimately be freed when the garbage collector is run, which brings up
@@ -653,7 +861,7 @@ Key take aways from this:
 -   Garbage collection is a background process, called by R when more
     memory is needed.
 -   Theoretically, you never need to call `gc()`. That said, sometimes
-    calling `gc()` appears to make more memory avaiable. It’s possible
+    calling `gc()` appears to make more memory available. It’s possible
     that this reduces some memory sharding issues, but it could also
     just be the higher mysteries of R.
 
@@ -676,7 +884,7 @@ need.
 
 ### 5.1 Partial Products
 
-Imagine we have a very tiny comupter, that can only hold 16 numbers at a
+Imagine we have a very tiny computer, that can only hold 16 numbers at a
 time in memory. How could we calculate the average of a vector of \~1
 million numbers?
 
@@ -726,7 +934,7 @@ cat(paste0("Built In Mean: ", mean(big_data), "\n"))
 
 If you try to run this on your own, you’ll notice that this partial
 product is much slower than the default mean calculation. R’s built in
-functions are highly optomized for vectorized data, and for loops in R
+functions are highly optimized for vectorized data, and for loops in R
 are notoriously slow. However, if the source data was not a vector, but
 rather a file on disk, running something slowly is better than not being
 able to run it at all.
@@ -773,7 +981,7 @@ This works. However, our ability to do some operations is limited. We
 can use streaming in conjunction with a temporary sqlite database.
 However debugging that can prove challenging. This method can also be
 quite slow, as processing text files is inefficient, not to mention the
-number of IO operations occuring.
+number of IO operations occurring.
 
 ### 5.4 Data Sharding
 
@@ -820,7 +1028,7 @@ summary(df1_year)
     ##  3rd Qu.:2009   3rd Qu.:67500   3rd Qu.: 0.662514  
     ##  Max.   :2009   Max.   :90000   Max.   : 4.940430
 
-Note that we had to specify the begining of the line in the regex, as
+Note that we had to specify the beginning of the line in the regexp, as
 our made up zip codes could have values that look like the year if that
 wasn’t there.
 
@@ -873,7 +1081,7 @@ given our reliance on creating useful a file naming system to manage the
 sharded data.
 
 HDF5 files provide a means to directly store objects in a file system
-like strucutre, and to contain all that within a single file on disk. We
+like structure, and to contain all that within a single file on disk. We
 can also store data documentation in the same file as our data, which
 makes sharing and transporting these systems easier.
 
@@ -915,7 +1123,7 @@ h5ls(h5_file)
     ## 1     / 2008 H5I_GROUP           
     ## 2     / 2009 H5I_GROUP
 
-This secton of code creates an empty hdf5 file. Data in hdf5 files is
+This section of code creates an empty hdf5 file. Data in hdf5 files is
 stored within a tree like structure. Groups can contain either other
 groups, or data objects (which can include most data objects in R,
 including data frames). We can structure highly dimensional data with
@@ -1054,7 +1262,7 @@ what’s out there.
 
 Keep in mind that with these solutions, there is typically an increase
 in initial development time and a decrease in portability. It’s always
-important to keep in mind the needs of your applicatoin when planning
+important to keep in mind the needs of your application when planning
 your solutions.
 
 #### 5.4.1 Databases
