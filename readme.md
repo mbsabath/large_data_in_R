@@ -1,3 +1,5 @@
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/harvardinformatics/large_data_in_R/binder?urlpath=rstudio)
+
 Large Data in R: README
 ================
 
