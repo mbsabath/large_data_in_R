@@ -3,7 +3,7 @@ Vector
 ================
 Ben Sabath
 
-Updated April 12, 2021
+Updated April 14, 2021
 
 ------------------------------------------------------------------------
 
@@ -304,7 +304,7 @@ x <- rnorm(1e6)
 ref(x)
 ```
 
-    ## [1:0x7fec2f000000] <dbl>
+    ## [1:0x7f8347000000] <dbl>
 
 In contrast to atomic vectors, lists can have objects of multiple data
 types, including other lists. This behavior enables lists to be used to
@@ -323,10 +323,10 @@ x <- list(1,2,3)
 ref(x)
 ```
 
-    ## █ [1:0x7fec27328048] <list> 
-    ## ├─[2:0x7fec2c901ac8] <dbl> 
-    ## ├─[3:0x7fec2c901a90] <dbl> 
-    ## └─[4:0x7fec2c901a58] <dbl>
+    ## █ [1:0x7f8345160bf8] <list> 
+    ## ├─[2:0x7f8345150100] <dbl> 
+    ## ├─[3:0x7f83451500c8] <dbl> 
+    ## └─[4:0x7f8345150090] <dbl>
 
 ### 2.3 Variable Assignment and Copy behavior
 
@@ -353,7 +353,7 @@ on the Cannon cluster.
 tracemem(x)
 ```
 
-    ## [1] "<0x7fec28522898>"
+    ## [1] "<0x7f834075af38>"
 
 This returns the current memory address of x. Let’s see what happens
 when we do something to change x.
@@ -362,23 +362,26 @@ when we do something to change x.
 x[[2]] <- 5 
 ```
 
-    ## tracemem[0x7fec28522898 -> 0x7fec2757fb98]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+    ## tracemem[0x7f834075af38 -> 0x7f83409e36f8]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
 
 ``` r
 ref(x)
 ```
 
-    ## [1:0x7fec2757fb98] <dbl>
+    ## [1:0x7f83409e36f8] <dbl>
 
 So here we see some evidence of copying behavior. This is unexpected
 behavior, but likely results from the Rmarkdown environment. Try running
 this same code in your console to see if it repeats.
 
+So what do we think will happen when we run the following line? Do you
+think we’ll see something copied here, or no?
+
 ``` r
 y <- x
 ```
 
-Now we execute it here:
+Now lets execute it here:
 
 ``` r
 y <- x
@@ -390,15 +393,16 @@ No output, let’s run `ref` to see what’s happening:
 ref(x)
 ```
 
-    ## [1:0x7fec2757fb98] <dbl>
+    ## [1:0x7f83409e36f8] <dbl>
 
 ``` r
 ref(y)
 ```
 
-    ## [1:0x7fec2757fb98] <dbl>
+    ## [1:0x7f83409e36f8] <dbl>
 
 They have the same address. We can model things in memory like this:
+
 ![two names](images/binding-f2.png)
 
 So what happens if we want to change `x` again? `x` and `y` are pointing
@@ -410,7 +414,7 @@ for both variables. But what does R do?
 x[4] <- 4
 ```
 
-    ## tracemem[0x7fec2757fb98 -> 0x7fec2649efe8]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+    ## tracemem[0x7f83409e36f8 -> 0x7f833f6000b8]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
 
 Here we see another copy event recorded (this one expected).
 
@@ -418,13 +422,13 @@ Here we see another copy event recorded (this one expected).
 ref(x)
 ```
 
-    ## [1:0x7fec2649efe8] <dbl>
+    ## [1:0x7f833f6000b8] <dbl>
 
 ``` r
 ref(y)
 ```
 
-    ## [1:0x7fec2757fb98] <dbl>
+    ## [1:0x7f83409e36f8] <dbl>
 
 We see that `y` still points to the old location, but now `x` points to
 a new location.
@@ -555,15 +559,15 @@ Show data duplication within df
 tracemem(df)
 ```
 
-    ## [1] "<0x7fec27325968>"
+    ## [1] "<0x7f83446c2368>"
 
 ``` r
 df$x <- df$x + 1
 ```
 
-    ## tracemem[0x7fec27325968 -> 0x7fec2ea73508]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
-    ## tracemem[0x7fec2ea73508 -> 0x7fec2ea73558]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
-    ## tracemem[0x7fec2ea73558 -> 0x7fec2ea735a8]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+    ## tracemem[0x7f83446c2368 -> 0x7f834050bb08]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7f834050bb08 -> 0x7f834050bb58]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7f834050bb58 -> 0x7f834050bba8]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
 
 ``` r
 untracemem(df)
@@ -575,7 +579,7 @@ No duplication with `data.table`
 tracemem(dt)
 ```
 
-    ## [1] "<0x7fec31454200>"
+    ## [1] "<0x7f8340533e00>"
 
 ``` r
 dt[, x := x+1]
@@ -648,7 +652,7 @@ set.
 tracemem(people)
 ```
 
-    ## [1] "<0x7fec3031a200>"
+    ## [1] "<0x7f8349b86200>"
 
 ``` r
 cut_set <- people[state %in% c("CA", "CT")]
@@ -657,14 +661,14 @@ untracemem(people)
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7fec2f884000>"
+    ## [1] "<0x7f8345194400>"
 
 ``` r
 cut_set <- cut_set[age >= 18]
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7fec2d808800>"
+    ## [1] "<0x7f8340c0ae00>"
 
 ``` r
 nrow(cut_set)
@@ -702,7 +706,7 @@ aggregation:
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7fec2d808800>"
+    ## [1] "<0x7f8340c0ae00>"
 
 ``` r
 cut_set[age >= 18 & age < 35, age_grp:= "18-34"]

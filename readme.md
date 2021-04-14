@@ -1,5 +1,3 @@
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mbsabath/large_data_in_R/HEAD?urlpath=rstudio)
-
 Large Data in R: README
 ================
 
@@ -85,11 +83,13 @@ terminal. To start Rstudio from the terminal, enter
 
 from the terminal where you’ve activated the envionment. The rstudio
 window that opens will have all required pacakges already installed,
-with the exception of the `chunked` package, which is not available
-through conda. To install that package, please run:
+with the exception of the `chunked` and `fst` packages, which have some
+challenges when installing through conda. To install that package,
+please run:
 
 ``` r
 install.packages("chunked")
+install.packages("fst")
 ```
 
-Once `chunked` is installed, your environment is good to go!
+Once those are is installed, your environment is good to go!

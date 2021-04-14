@@ -1,13 +1,14 @@
-name: large_data_in_R_2
+name: large_data_in_R
 channels:
   - conda-forge
   - bioconda
   - defaults
 dependencies:
+  - defaults::r-base=3.6.*
   - conda-forge::r-lobstr
   - conda-forge::r-data.table
-  - conda-forge::r-fst
+#  - conda-forge::r-fst
   - defaults::rstudio
   - conda-forge::ripgrep
   - bioconda::bioconductor-rhdf5
-prefix: /opt/anaconda3/envs/large_data_in_R_2
+prefix: /opt/anaconda3/envs/large_data_in_R

@@ -216,11 +216,13 @@ x[[2]] <- 5
 ref(x)
 ```
 So here we see some evidence of copying behavior. This is unexpected behavior, but likely results from the Rmarkdown environment. Try running this same code in your console to see if it repeats.
+
+So what do we think will happen when we run the following line? Do you think we'll see something copied here, or no?
 ```{R, eval=F}
 y <- x
 ```
 
-Now we execute it here:
+Now lets execute it here:
 ```{R}
 y <- x
 ```
@@ -230,6 +232,7 @@ ref(x)
 ref(y)
 ```
 They have the same address. We can model things in memory like this:
+
 ![two names](images/binding-f2.png)
 
 So what happens if we want to change `x` again? `x` and `y` are pointing to the same object, maybe running something like `x[4] <- 4`. In languages like Python, if we did that, it would change the 3rd object for both variables. But what does R do?
