@@ -3,6 +3,9 @@ title: "Large Data in R: README"
 output: github_document
 ---
 
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mbsabath/large_data_in_R/HEAD?urlpath=rstudio)
+
 This repository contains all course materials for the Large Data in R Workshop. You can clone it to your personal computer to be able to easily follow along and run the exercises.
 
 You'll need to have some basic skill with git to be able to do this. Instructions for setting up git are [here](https://docs.github.com/en/github/getting-started-with-github/set-up-git).

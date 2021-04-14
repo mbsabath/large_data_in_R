@@ -1,6 +1,8 @@
 Large Data in R: README
 ================
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mbsabath/large_data_in_R/HEAD?urlpath=rstudio)
+
 This repository contains all course materials for the Large Data in R
 Workshop. You can clone it to your personal computer to be able to
 easily follow along and run the exercises.
