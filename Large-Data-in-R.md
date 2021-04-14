@@ -97,14 +97,16 @@ terminal. To start Rstudio from the terminal, enter
 
 from the terminal where you’ve activated the environment. The rstudio
 window that opens will have all required packages already installed,
-with the exception of the `chunked` package, which is not available
-through conda. To install that package, please run:
+with the exception of the `chunked` and `fst` packages, which have some
+challenges when installing through conda. To install those packages,
+please run:
 
 ``` r
 install.packages("chunked")
+install.packages("fst")
 ```
 
-Once `chunked` is installed, your environment is good to go!
+Once those are is installed, your environment is good to go!
 
 ## Part 1: What Is Large Data?
 
@@ -304,7 +306,7 @@ x <- rnorm(1e6)
 ref(x)
 ```
 
-    ## [1:0x7f8347000000] <dbl>
+    ## [1:0x7f94f9000000] <dbl>
 
 In contrast to atomic vectors, lists can have objects of multiple data
 types, including other lists. This behavior enables lists to be used to
@@ -323,10 +325,10 @@ x <- list(1,2,3)
 ref(x)
 ```
 
-    ## █ [1:0x7f8345160bf8] <list> 
-    ## ├─[2:0x7f8345150100] <dbl> 
-    ## ├─[3:0x7f83451500c8] <dbl> 
-    ## └─[4:0x7f8345150090] <dbl>
+    ## █ [1:0x7f94f3eb03a8] <list> 
+    ## ├─[2:0x7f94f38cc338] <dbl> 
+    ## ├─[3:0x7f94f38cc300] <dbl> 
+    ## └─[4:0x7f94f38cc2c8] <dbl>
 
 ### 2.3 Variable Assignment and Copy behavior
 
@@ -353,7 +355,7 @@ on the Cannon cluster.
 tracemem(x)
 ```
 
-    ## [1] "<0x7f834075af38>"
+    ## [1] "<0x7f94f27bf528>"
 
 This returns the current memory address of x. Let’s see what happens
 when we do something to change x.
@@ -362,13 +364,13 @@ when we do something to change x.
 x[[2]] <- 5 
 ```
 
-    ## tracemem[0x7f834075af38 -> 0x7f83409e36f8]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+    ## tracemem[0x7f94f27bf528 -> 0x7f94f71a0208]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
 
 ``` r
 ref(x)
 ```
 
-    ## [1:0x7f83409e36f8] <dbl>
+    ## [1:0x7f94f71a0208] <dbl>
 
 So here we see some evidence of copying behavior. This is unexpected
 behavior, but likely results from the Rmarkdown environment. Try running
@@ -393,13 +395,13 @@ No output, let’s run `ref` to see what’s happening:
 ref(x)
 ```
 
-    ## [1:0x7f83409e36f8] <dbl>
+    ## [1:0x7f94f71a0208] <dbl>
 
 ``` r
 ref(y)
 ```
 
-    ## [1:0x7f83409e36f8] <dbl>
+    ## [1:0x7f94f71a0208] <dbl>
 
 They have the same address. We can model things in memory like this:
 
@@ -414,7 +416,7 @@ for both variables. But what does R do?
 x[4] <- 4
 ```
 
-    ## tracemem[0x7f83409e36f8 -> 0x7f833f6000b8]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+    ## tracemem[0x7f94f71a0208 -> 0x7f94f22c9398]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
 
 Here we see another copy event recorded (this one expected).
 
@@ -422,13 +424,13 @@ Here we see another copy event recorded (this one expected).
 ref(x)
 ```
 
-    ## [1:0x7f833f6000b8] <dbl>
+    ## [1:0x7f94f22c9398] <dbl>
 
 ``` r
 ref(y)
 ```
 
-    ## [1:0x7f83409e36f8] <dbl>
+    ## [1:0x7f94f71a0208] <dbl>
 
 We see that `y` still points to the old location, but now `x` points to
 a new location.
@@ -559,15 +561,15 @@ Show data duplication within df
 tracemem(df)
 ```
 
-    ## [1] "<0x7f83446c2368>"
+    ## [1] "<0x7f94f61c4b68>"
 
 ``` r
 df$x <- df$x + 1
 ```
 
-    ## tracemem[0x7f83446c2368 -> 0x7f834050bb08]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
-    ## tracemem[0x7f834050bb08 -> 0x7f834050bb58]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
-    ## tracemem[0x7f834050bb58 -> 0x7f834050bba8]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+    ## tracemem[0x7f94f61c4b68 -> 0x7f94f8d5e508]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7f94f8d5e508 -> 0x7f94f8d5e558]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7f94f8d5e558 -> 0x7f94f8d5e5a8]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
 
 ``` r
 untracemem(df)
@@ -579,7 +581,7 @@ No duplication with `data.table`
 tracemem(dt)
 ```
 
-    ## [1] "<0x7f8340533e00>"
+    ## [1] "<0x7f94f7063800>"
 
 ``` r
 dt[, x := x+1]
@@ -652,7 +654,7 @@ set.
 tracemem(people)
 ```
 
-    ## [1] "<0x7f8349b86200>"
+    ## [1] "<0x7f94fc1d8c00>"
 
 ``` r
 cut_set <- people[state %in% c("CA", "CT")]
@@ -661,14 +663,14 @@ untracemem(people)
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7f8345194400>"
+    ## [1] "<0x7f94fc18fe00>"
 
 ``` r
 cut_set <- cut_set[age >= 18]
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7f8340c0ae00>"
+    ## [1] "<0x7f94f4529200>"
 
 ``` r
 nrow(cut_set)
@@ -706,7 +708,7 @@ aggregation:
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7f8340c0ae00>"
+    ## [1] "<0x7f94f4529200>"
 
 ``` r
 cut_set[age >= 18 & age < 35, age_grp:= "18-34"]

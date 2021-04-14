@@ -71,11 +71,13 @@ To run Rstudio using the environment, it's important to run it from the terminal
 ```
 rstudio
 ```
-from the terminal where you've activated the environment. The rstudio window that opens will have all required packages already installed, with the exception of the `chunked` package, which is not available through conda. To install that package, please run:
+from the terminal where you've activated the environment. The rstudio window that opens will have all required packages already installed, with the exception of the `chunked` and `fst` packages, which have some challenges when installing through conda. To install those packages, please run:
 ```{R, eval = F}
 install.packages("chunked")
+install.packages("fst")
 ```
-Once `chunked` is installed, your environment is good to go!
+Once those are is installed, your environment is good to go!
+
 
 ## Part 1: What Is Large Data?
 
