@@ -9,7 +9,8 @@ RUN apt update && apt install -y --no-install-recommends \
 RUN install2.r --skipinstalled \
   chunked \
   fst \
-  lobstr
+  lobstr \
+  vroom
 
 USER rstudio
 
