@@ -18,9 +18,15 @@ Instructions for setting up git are
 There are multiple ways to set up your environment for this course. Our
 focus will be more on the concepts underlying Large Data in R and how to
 work through problems, rather then executing specific blocks of code.
-However if you’d like to follow along and ensure that you have all
-packages you need installed, I’ve provided a `conda` environment in this
-repo for your use.
+
+The easiest way to follow along with your own R studio instance is to
+click on the binder tag at the top of the screen. It’ll open up an
+Rstudio instance in your browser with everything we need aleady
+installed.
+
+However if you’d like to follow along on your own machine and ensure
+that you have all packages you need installed, I’ve provided a `conda`
+environment in this repo for your use.
 
 Note: This course assumes that you are comfortable using the command
 line and are working on a unix based system (MacOS or Linux). The

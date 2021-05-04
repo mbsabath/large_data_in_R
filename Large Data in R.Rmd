@@ -19,14 +19,19 @@ date: "Updated `r format(Sys.Date(), '%B %d, %Y')`"
 
 --------
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mbsabath/large_data_in_R/HEAD?urlpath=rstudio)
+
 ## Part 0: Environment Set Up
 
 **PLEASE DO THIS BEFORE THE WORKSHOP**
 
 There are multiple ways to set up your environment for this course. Our focus will be more on the 
 concepts underlying Large Data in R and how to work through problems, rather then executing specific
-blocks of code. However if you'd like to follow along and ensure that you have all packages you need
-installed, I've provided a `conda` environment in this repo for your use.
+blocks of code. 
+
+The easiest way to follow along with your own R studio instance is to click on the binder tag at the top of the screen. It'll open up an Rstudio instance in your browser with everything we need aleady installed.
+
+However if you'd like to follow along on your own computer rather than in your browser, to help ensure that you have all packages you need installed, I've provided a `conda` environment in this repo for your use.
 
 Note: This course assumes that you are comfortable using the command line and are working on a Unix based system (MacOS or Linux). The assistance I'll be able to provide for attendees with windows computers will be limited.
 
@@ -496,7 +501,7 @@ cat(paste0("Built In Mean: ", mean(big_data), "\n"))
 If you try to run this on your own, you'll notice that this partial product is much slower than the default mean calculation. R's built in functions are highly optimized for vectorized data, and for loops in R are notoriously slow. However, if the source data was not a vector, but rather a file on disk, running something slowly is better than not being able to run it at all.
 
 
-### 5.2 Data Streaming - `chunked` + `sqlite`
+### 5.2 Data Streaming - `chunked`
 
 Data streaming is a method of reading in parts of a file at a time. If we're faced with a large csv file, we can use the chunked package to stream it and perform `dplyr` like data operations on it. In this example we demonstrate how to join two csv files using a streaming technique.
 
@@ -538,7 +543,7 @@ Streaming data is generally useful, however it presents a couple challenges. Fir
 
 A better approach can involve splitting our data in to shards ahead of time (informed by our sense of how the data will be used), ideally in to a data format that will allow us to also read in only single columns at a time.
 
-#### 5.3.1 Basic Tabular Data: `.fst` files
+#### 5.4.1 Basic Tabular Data: `.fst` files
 
 Here use `ripgrep`, an optimized version of grep to quickly break up our files by year. Note that this method require being aware of patterns in the data and thinking through how to use those to shard the data.
 
@@ -582,7 +587,7 @@ files <- list.files("cache/df1_shards", pattern = ".fst", full.names = T)
 Here we see that after sharding, and using the .fst files ability to select columns, we were able to quickly just get the values we were interested in.
 
 
-#### 5.3.2 More Complex Data: HDF5 files
+#### 5.4.2 More Complex Data: HDF5 files
 
 FST files work well enough when we want to shard on a single variable. However managing data shared on multiple variables becomes challenging, given our reliance on creating useful a file naming system to manage the sharded data.
 
@@ -636,7 +641,7 @@ for (year in 2007:2009) {
 summary(out)
 ```
 
-One final useful aspect of hdf5 files is that we are not limited to storing data frame like data, and can combine multiple types of information in to a single file for easy sharing. For example, we could package a data dictionary along with our sharded data. We can either directly store strings in the file as data objects, or store a list containing all data documentation information in a single object. Both methods are valid, and your choice depends on your needs.
+One final useful aspect of hdf5 files is that we are not limited to storing data frame like data, and can combine multiple types of information in to a single file for easy sharing. For example, we could pacookage a data dictionary along with our sharded data. We can either directly store strings in the file as data objects, or store a list containing all data documentation information in a single object. Both methods are valid, and your choice depends on your needs.
 
 ```{R h5 documentation}
 ## Individual String Storage
@@ -656,13 +661,19 @@ h5write(dict, h5_file, "docs")
 print(h5read(h5_file, "docs"))
 ```
 
+#### 5.4.3 Other Useful Tools
+
+ - Apache Spark/Parquet Datasets are another useful tool supporting data sharding. They use the file system, with directory names corresponding to values of variables, similar to how we used groups with hdf5 files above. More information can be found [here](https://cran.r-project.org/web/packages/arrow/vignettes/dataset.html).
+ 
+ - [vroom](https://vroom.r-lib.org/articles/vroom.html#reading-compressed-files-1) is a package designed for super fast reading of tabular data files. It provides similar functionality to `readr` but with improved performance, and additional features (such as supporting column selection). It works by indexing your data rather than reading it in to memory all at once, and then just reading only what you use in to memory. This reduces the memory impact when you only need access to a partial file, but still threatens to cause memory issues if not used carefully.
+
 ### 5.5 Other Approaches
 
 The approaches we've covered today work with minimal infrastructure, and can easily work on both personal computers and in cluster environments. There are other techniques out there, all of which merit their own workshops, we'll briefly touch on these just to give people a sense of what's out there.
 
 Keep in mind that with these solutions, there is typically an increase in initial development time and a decrease in portability. It's always important to keep in mind the needs of your application when planning your solutions.
 
-#### 5.4.1 Databases
+#### 5.5.1 Databases
 
 SQL based database systems are the classic solution for dealing with complex data that exceeds the size of memory. The DBMS handles calculations of partial products in memory as well as handling optimization of the query plan. However most database systems require dedicated servers and are often not the best fit for academic research projects.
 
@@ -670,13 +681,13 @@ That said, we can use systems like sqlite to create file based databases that ca
 
 Database development and optimization is its own field of engineering, with enough material and nuance to require multiple university courses.
 
-#### 5.4.2 MPI Interfaces on HPC
+#### 5.5.2 MPI Interfaces on HPC
 
 One of the simplest solutions to big data problems (when working on a cluster system, and/or computing cost isn't a major concern) is to acquire more memory. However, with most tools in HPC computing environments we are physically limited by the total amount of memory available on a single node. 
 
 [MPI](https://hpc-wiki.info/hpc/MPI) provides a way around this limit by providing a method for separate nodes to pass messages to each other and effectively serve as a shared memory system, with many child nodes being coordinated by a controlling parent node. Developing a program to work using MPI is a complex development process, although the [R MPI library](https://docs.rc.fas.harvard.edu/kb/r-mpi/) does exist to simplify integration between the base MPI library and R.
 
-#### 5.4.3 Spark
+#### 5.5.3 Spark
 
 [Apache Spark](https://spark.apache.org/) is a "a fast and general processing engine compatible with Hadoop data." Spark clusters can support working with data larger than memory (and can automatically handle memory overflows by putting data on disk as necessary). Spark can be set up locally on a personal computer, or run on a cluster system managed by Kubernetes.
 

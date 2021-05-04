@@ -3,7 +3,7 @@ Vector
 ================
 Ben Sabath
 
-Updated April 14, 2021
+Updated May 04, 2021
 
 ------------------------------------------------------------------------
 
@@ -23,6 +23,8 @@ Updated April 14, 2021
 
 ------------------------------------------------------------------------
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/mbsabath/large_data_in_R/HEAD?urlpath=rstudio)
+
 ## Part 0: Environment Set Up
 
 **PLEASE DO THIS BEFORE THE WORKSHOP**
@@ -30,9 +32,16 @@ Updated April 14, 2021
 There are multiple ways to set up your environment for this course. Our
 focus will be more on the concepts underlying Large Data in R and how to
 work through problems, rather then executing specific blocks of code.
-However if you’d like to follow along and ensure that you have all
-packages you need installed, I’ve provided a `conda` environment in this
-repo for your use.
+
+The easiest way to follow along with your own R studio instance is to
+click on the binder tag at the top of the screen. It’ll open up an
+Rstudio instance in your browser with everything we need aleady
+installed.
+
+However if you’d like to follow along on your own computer rather than
+in your browser, to help ensure that you have all packages you need
+installed, I’ve provided a `conda` environment in this repo for your
+use.
 
 Note: This course assumes that you are comfortable using the command
 line and are working on a Unix based system (MacOS or Linux). The
@@ -306,7 +315,7 @@ x <- rnorm(1e6)
 ref(x)
 ```
 
-    ## [1:0x7f94f9000000] <dbl>
+    ## [1:0x7fda3a4ce000] <dbl>
 
 In contrast to atomic vectors, lists can have objects of multiple data
 types, including other lists. This behavior enables lists to be used to
@@ -325,10 +334,10 @@ x <- list(1,2,3)
 ref(x)
 ```
 
-    ## █ [1:0x7f94f3eb03a8] <list> 
-    ## ├─[2:0x7f94f38cc338] <dbl> 
-    ## ├─[3:0x7f94f38cc300] <dbl> 
-    ## └─[4:0x7f94f38cc2c8] <dbl>
+    ## █ [1:0x7fda33595108] <list> 
+    ## ├─[2:0x7fda33171b70] <dbl> 
+    ## ├─[3:0x7fda33171b38] <dbl> 
+    ## └─[4:0x7fda33171b00] <dbl>
 
 ### 2.3 Variable Assignment and Copy behavior
 
@@ -355,7 +364,7 @@ on the Cannon cluster.
 tracemem(x)
 ```
 
-    ## [1] "<0x7f94f27bf528>"
+    ## [1] "<0x7fda33e15788>"
 
 This returns the current memory address of x. Let’s see what happens
 when we do something to change x.
@@ -364,13 +373,13 @@ when we do something to change x.
 x[[2]] <- 5 
 ```
 
-    ## tracemem[0x7f94f27bf528 -> 0x7f94f71a0208]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+    ## tracemem[0x7fda33e15788 -> 0x7fda33626198]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
 
 ``` r
 ref(x)
 ```
 
-    ## [1:0x7f94f71a0208] <dbl>
+    ## [1:0x7fda33626198] <dbl>
 
 So here we see some evidence of copying behavior. This is unexpected
 behavior, but likely results from the Rmarkdown environment. Try running
@@ -395,13 +404,13 @@ No output, let’s run `ref` to see what’s happening:
 ref(x)
 ```
 
-    ## [1:0x7f94f71a0208] <dbl>
+    ## [1:0x7fda33626198] <dbl>
 
 ``` r
 ref(y)
 ```
 
-    ## [1:0x7f94f71a0208] <dbl>
+    ## [1:0x7fda33626198] <dbl>
 
 They have the same address. We can model things in memory like this:
 
@@ -416,7 +425,7 @@ for both variables. But what does R do?
 x[4] <- 4
 ```
 
-    ## tracemem[0x7f94f71a0208 -> 0x7f94f22c9398]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+    ## tracemem[0x7fda33626198 -> 0x7fda3713c748]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
 
 Here we see another copy event recorded (this one expected).
 
@@ -424,13 +433,13 @@ Here we see another copy event recorded (this one expected).
 ref(x)
 ```
 
-    ## [1:0x7f94f22c9398] <dbl>
+    ## [1:0x7fda3713c748] <dbl>
 
 ``` r
 ref(y)
 ```
 
-    ## [1:0x7f94f71a0208] <dbl>
+    ## [1:0x7fda33626198] <dbl>
 
 We see that `y` still points to the old location, but now `x` points to
 a new location.
@@ -561,15 +570,15 @@ Show data duplication within df
 tracemem(df)
 ```
 
-    ## [1] "<0x7f94f61c4b68>"
+    ## [1] "<0x7fda363b3568>"
 
 ``` r
 df$x <- df$x + 1
 ```
 
-    ## tracemem[0x7f94f61c4b68 -> 0x7f94f8d5e508]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
-    ## tracemem[0x7f94f8d5e508 -> 0x7f94f8d5e558]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
-    ## tracemem[0x7f94f8d5e558 -> 0x7f94f8d5e5a8]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
+    ## tracemem[0x7fda363b3568 -> 0x7fda3bb15b08]: eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7fda3bb15b08 -> 0x7fda3bb15b58]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous> 
+    ## tracemem[0x7fda3bb15b58 -> 0x7fda3bb15ba8]: $<-.data.frame $<- eval eval withVisible withCallingHandlers handle timing_fn evaluate_call <Anonymous> evaluate in_dir block_exec call_block process_group.block process_group withCallingHandlers process_file <Anonymous> <Anonymous>
 
 ``` r
 untracemem(df)
@@ -581,7 +590,7 @@ No duplication with `data.table`
 tracemem(dt)
 ```
 
-    ## [1] "<0x7f94f7063800>"
+    ## [1] "<0x7fda36454400>"
 
 ``` r
 dt[, x := x+1]
@@ -654,7 +663,7 @@ set.
 tracemem(people)
 ```
 
-    ## [1] "<0x7f94fc1d8c00>"
+    ## [1] "<0x7fda3b116200>"
 
 ``` r
 cut_set <- people[state %in% c("CA", "CT")]
@@ -663,14 +672,14 @@ untracemem(people)
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7f94fc18fe00>"
+    ## [1] "<0x7fda37810a00>"
 
 ``` r
 cut_set <- cut_set[age >= 18]
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7f94f4529200>"
+    ## [1] "<0x7fda31be6800>"
 
 ``` r
 nrow(cut_set)
@@ -708,7 +717,7 @@ aggregation:
 tracemem(cut_set)
 ```
 
-    ## [1] "<0x7f94f4529200>"
+    ## [1] "<0x7fda31be6800>"
 
 ``` r
 cut_set[age >= 18 & age < 35, age_grp:= "18-34"]
@@ -949,7 +958,7 @@ are notoriously slow. However, if the source data was not a vector, but
 rather a file on disk, running something slowly is better than not being
 able to run it at all.
 
-### 5.2 Data Streaming - `chunked` + `sqlite`
+### 5.2 Data Streaming - `chunked`
 
 Data streaming is a method of reading in parts of a file at a time. If
 we’re faced with a large csv file, we can use the chunked package to
@@ -1006,7 +1015,7 @@ time (informed by our sense of how the data will be used), ideally in to
 a data format that will allow us to also read in only single columns at
 a time.
 
-#### 5.3.1 Basic Tabular Data: `.fst` files
+#### 5.4.1 Basic Tabular Data: `.fst` files
 
 Here use `ripgrep`, an optimized version of grep to quickly break up our
 files by year. Note that this method require being aware of patterns in
@@ -1083,7 +1092,7 @@ Here we see that after sharding, and using the .fst files ability to
 select columns, we were able to quickly just get the values we were
 interested in.
 
-#### 5.3.2 More Complex Data: HDF5 files
+#### 5.4.2 More Complex Data: HDF5 files
 
 FST files work well enough when we want to shard on a single variable.
 However managing data shared on multiple variables becomes challenging,
@@ -1221,7 +1230,7 @@ summary(out)
 One final useful aspect of hdf5 files is that we are not limited to
 storing data frame like data, and can combine multiple types of
 information in to a single file for easy sharing. For example, we could
-package a data dictionary along with our sharded data. We can either
+pacookage a data dictionary along with our sharded data. We can either
 directly store strings in the file as data objects, or store a list
 containing all data documentation information in a single object. Both
 methods are valid, and your choice depends on your needs.
@@ -1262,6 +1271,24 @@ print(h5read(h5_file, "docs"))
     ## $zip
     ## [1] "zip code"
 
+#### 5.4.3 Other Useful Tools
+
+-   Apache Spark/Parquet Datasets are another useful tool supporting
+    data sharding. They use the file system, with directory names
+    corresponding to values of variables, similar to how we used groups
+    with hdf5 files above. More information can be found
+    [here](https://cran.r-project.org/web/packages/arrow/vignettes/dataset.html).
+
+-   [vroom](https://vroom.r-lib.org/articles/vroom.html#reading-compressed-files-1)
+    is a package designed for super fast reading of tabular data files.
+    It provides similar functionality to `readr` but with improved
+    performance, and additional features (such as supporting column
+    selection). It works by indexing your data rather than reading it in
+    to memory all at once, and then just reading only what you use in to
+    memory. This reduces the memory impact when you only need access to
+    a partial file, but still threatens to cause memory issues if not
+    used carefully.
+
 ### 5.5 Other Approaches
 
 The approaches we’ve covered today work with minimal infrastructure, and
@@ -1275,7 +1302,7 @@ in initial development time and a decrease in portability. It’s always
 important to keep in mind the needs of your application when planning
 your solutions.
 
-#### 5.4.1 Databases
+#### 5.5.1 Databases
 
 SQL based database systems are the classic solution for dealing with
 complex data that exceeds the size of memory. The DBMS handles
@@ -1295,7 +1322,7 @@ databases.
 Database development and optimization is its own field of engineering,
 with enough material and nuance to require multiple university courses.
 
-#### 5.4.2 MPI Interfaces on HPC
+#### 5.5.2 MPI Interfaces on HPC
 
 One of the simplest solutions to big data problems (when working on a
 cluster system, and/or computing cost isn’t a major concern) is to
@@ -1311,7 +1338,7 @@ using MPI is a complex development process, although the [R MPI
 library](https://docs.rc.fas.harvard.edu/kb/r-mpi/) does exist to
 simplify integration between the base MPI library and R.
 
-#### 5.4.3 Spark
+#### 5.5.3 Spark
 
 [Apache Spark](https://spark.apache.org/) is a “a fast and general
 processing engine compatible with Hadoop data.” Spark clusters can
